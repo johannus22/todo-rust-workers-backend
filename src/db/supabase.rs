@@ -1,3 +1,4 @@
+use crate::utils::context::AppContext;
 use worker::*;
 
 pub struct SupabaseClient {
@@ -6,7 +7,7 @@ pub struct SupabaseClient {
 }
 
 impl SupabaseClient {
-    pub fn from_env(ctx: &RouteContext<()>) -> Result<Self> {
+    pub fn from_env(ctx: &AppContext) -> Result<Self> {
         let base_url = ctx.env.var("DB_API_URL")?.to_string();
         let api_key = ctx.env
             .var("DB_API_KEY")

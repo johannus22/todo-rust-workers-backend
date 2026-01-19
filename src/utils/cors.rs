@@ -2,9 +2,10 @@ use worker::*;
 
 pub fn get_headers() -> Result<Headers> {
     let headers = Headers::new();
-    headers.set("Access-Control-Allow-Origin", "*")?;
+    headers.set("Access-Control-Allow-Origin", "http://localhost:5173")?;
+    headers.set("Access-Control-Allow-Credentials", "true")?;
     headers.set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")?;
-    headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization")?;
+    headers.set("Access-Control-Allow-Headers", "Content-Type")?;
     headers.set("Access-Control-Max-Age", "86400")?; // 24 hours
     Ok(headers)
 }

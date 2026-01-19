@@ -1,11 +1,12 @@
 use crate::db::SupabaseClient;
 use crate::models::User;
+use crate::utils::context::AppContext;
 use worker::*;
 
 pub struct UserRepo;
 
 impl UserRepo {
-    pub async fn list(ctx: &RouteContext<()>) -> Result<Vec<User>> {
+    pub async fn list(ctx: &AppContext) -> Result<Vec<User>> {
         let client = SupabaseClient::from_env(ctx)?;
         let query = "select=id,name&order=id.desc";
         
@@ -19,7 +20,7 @@ impl UserRepo {
         }
     }
 
-    pub async fn create(ctx: &RouteContext<()>, name: String) -> Result<User> {
+    pub async fn create(ctx: &AppContext, name: String) -> Result<User> {
         let client = SupabaseClient::from_env(ctx)?;
         let body = serde_json::json!({ "name": name });
         

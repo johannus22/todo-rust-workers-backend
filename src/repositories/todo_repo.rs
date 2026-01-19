@@ -1,11 +1,12 @@
 use crate::db::SupabaseClient;
 use crate::models::Todo;
+use crate::utils::context::AppContext;
 use worker::*;
 
 pub struct TodoRepo;
 
 impl TodoRepo {
-    pub async fn list(ctx: &RouteContext<()>) -> Result<Vec<Todo>> {
+    pub async fn list(ctx: &AppContext) -> Result<Vec<Todo>> {
         let client = SupabaseClient::from_env(ctx)?;
         let query = "select=id,title,completed,created_at&order=created_at.desc";
         
@@ -19,7 +20,7 @@ impl TodoRepo {
         }
     }
 
-    pub async fn create(ctx: &RouteContext<()>, title: String) -> Result<Todo> {
+    pub async fn create(ctx: &AppContext, title: String) -> Result<Todo> {
         let client = SupabaseClient::from_env(ctx)?;
         let body = serde_json::json!({ "title": title });
         
@@ -33,7 +34,7 @@ impl TodoRepo {
         }
     }
 
-    pub async fn update(ctx: &RouteContext<()>, id: i64, completed: bool) -> Result<Todo> {
+    pub async fn update(ctx: &AppContext, id: i64, completed: bool) -> Result<Todo> {
         let client = SupabaseClient::from_env(ctx)?;
         let body = serde_json::json!({ "completed": completed });
         
@@ -47,7 +48,7 @@ impl TodoRepo {
         }
     }
 
-    pub async fn delete(ctx: &RouteContext<()>, id: i64) -> Result<()> {
+    pub async fn delete(ctx: &AppContext, id: i64) -> Result<()> {
         let client = SupabaseClient::from_env(ctx)?;
         client.delete("todos", id).await
     }
