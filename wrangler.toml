@@ -1,0 +1,16 @@
+name = "crab-worker"
+main = "build/index.js"
+compatibility_date = "2026-01-16"
+
+[build]
+command = "cargo install -q worker-build@^0.7 && worker-build --release"
+
+[vars]
+APP_NAME = "todo-backend"
+DB_API_URL = "https://lthtaikdtvvcaeperfas.supabase.co"
+
+
+[[kv_namespaces]]
+binding = "USERS_KV"
+id = "users_kv_preview"
+preview_id = "users_kv_preview"
