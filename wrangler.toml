@@ -9,6 +9,11 @@ command = "cargo install -q worker-build@^0.7 && worker-build --release"
 APP_NAME = "todo-backend"
 DB_API_URL = "https://lthtaikdtvvcaeperfas.supabase.co"
 
+# Ory Keto Read API (e.g. Docker: http://keto:4467 or host: http://localhost:4467).
+# For prod, set via: wrangler secret put KETO_READ_URL
+KETO_READ_URL = "http://localhost:4466"
+KETO_WRITE_URL = "http://localhost:4467"
+
 
 [[kv_namespaces]]
 binding = "USERS_KV"
