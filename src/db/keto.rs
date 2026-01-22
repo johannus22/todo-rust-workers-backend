@@ -70,50 +70,102 @@ impl KetoClient {
         Ok(h)
     }
 
-    /// Check if a subject has a relation on an object. Uses `/relation-tuples/check`
-    /// which returns `{ "allowed": bool }` (does not use HTTP status for deny).
+    /// Check if a subject has a relation on an object. Uses `/relation-tuples/check/openapi`
+    /// which returns `{ "allowed": bool }` with HTTP 200 (avoids 403/404 on deny).
     pub async fn check(&self, p: CheckParams) -> Result<bool> {
-        let mut q: Vec<String> = vec![
-            format!("namespace={}", p.namespace),
-            format!("object={}", p.object),
-            format!("relation={}", p.relation),
-        ];
+        let mut body = serde_json::json!({
+            "namespace": p.namespace,
+            "object": p.object,
+            "relation": p.relation,
+        });
+
         if let Some(s) = &p.subject_id {
-            q.push(format!("subject_id={}", s));
+            body["subject_id"] = serde_json::Value::String(s.clone());
         }
         if let Some(ss) = &p.subject_set {
-            q.push(format!("subject_set.namespace={}", ss.namespace));
-            q.push(format!("subject_set.object={}", ss.object));
-            q.push(format!("subject_set.relation={}", ss.relation));
+            body["subject_set"] = serde_json::json!({
+                "namespace": ss.namespace,
+                "object": ss.object,
+                "relation": ss.relation,
+            });
         }
         if let Some(d) = p.max_depth {
-            q.push(format!("max_depth={}", d));
-        }
-        let url = format!("{}/relation-tuples/check?{}", self.read_url, q.join("&"));
-
-        let req = Request::new_with_init(
-            &url,
-            RequestInit::new()
-                .with_method(Method::Get)
-                .with_headers(Self::headers()?),
-        )?;
-
-        let mut resp = Fetch::Request(req).send().await?;
-        let code = resp.status_code();
-        let text = resp.text().await?;
-
-        if code != 200 {
-            return Err(Error::RustError(format!(
-                "Keto check error ({}): {}",
-                code, text
-            )));
+            body["max_depth"] = serde_json::Value::Number(d.into());
         }
 
-        let json: serde_json::Value = serde_json::from_str(&text)
-            .map_err(|e| Error::RustError(format!("Keto check json: {}", e)))?;
-        Ok(json.get("allowed").and_then(|v| v.as_bool()).unwrap_or(false))
+        let candidates = [
+            format!("{}/relation-tuples/check/openapi", self.read_url),
+            format!("{}/relation-tuples/check", self.read_url),
+            format!("{}/v1/relation-tuples/check/openapi", self.read_url),
+            format!("{}/v1/relation-tuples/check", self.read_url),
+        ];
+
+        let mut last_error: Option<String> = None;
+        for url in candidates {
+            let req = Request::new_with_init(
+                &url,
+                RequestInit::new()
+                    .with_method(Method::Post)
+                    .with_headers(Self::headers()?)
+                    .with_body(Some(body.to_string().into())),
+            )?;
+
+            let mut resp = Fetch::Request(req).send().await?;
+            let code = resp.status_code();
+            let text = resp.text().await?;
+
+            if code == 200 {
+                let json: serde_json::Value = serde_json::from_str(&text)
+                    .map_err(|e| Error::RustError(format!("Keto check json: {}", e)))?;
+                return Ok(json
+                    .get("allowed")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false));
+            }
+
+            if code != 404 {
+                return Err(Error::RustError(format!(
+                    "Keto check error ({}): {}",
+                    code, text
+                )));
+            }
+
+            last_error = Some(format!("{} -> {}", url, text));
+        }
+
+        // Fallback for older/variant APIs: use list with exact filters.
+        let list = self
+            .list_relation_tuples(ListParams {
+                namespace: p.namespace,
+                object: Some(p.object),
+                relation: Some(p.relation),
+                subject_id: p.subject_id,
+                subject_set: p.subject_set.map(|ss| {
+                    if ss.relation.is_empty() {
+                        format!("{}:{}", ss.namespace, ss.object)
+                    } else {
+                        format!("{}:{}#{}", ss.namespace, ss.object, ss.relation)
+                    }
+                }),
+                page_size: Some(1),
+                page_token: None,
+            })
+            .await;
+
+        if let Ok(json) = list {
+            let allowed = json
+                .get("relation_tuples")
+                .and_then(|v| v.as_array())
+                .map(|a| !a.is_empty())
+                .unwrap_or(false);
+            return Ok(allowed);
+        }
+
+        Err(Error::RustError(format!(
+            "Keto check error (404): no check endpoint found; last: {}",
+            last_error.unwrap_or_else(|| "none".to_string())
+        )))
     }
-
     /// Expand a relation to see all subjects that have it (tree of subject_ids and subject_sets).
     pub async fn expand(
         &self,
@@ -197,7 +249,7 @@ impl KetoClient {
         serde_json::from_str(&text).map_err(|e| Error::RustError(format!("Keto list json: {}", e)))
     }
 
-    /// Create a relation tuple via `PUT /admin/relation-tuples`. Idempotent if tuple exists.
+    /// Create a relation tuple via `PUT /relation-tuples` on the Write API. Idempotent if tuple exists.
     pub async fn create_relation_tuple(
         &self,
         namespace: &str,
@@ -205,7 +257,7 @@ impl KetoClient {
         relation: &str,
         subject_id: &str,
     ) -> Result<()> {
-        let url = format!("{}/admin/relation-tuples", self.write_url);
+        let url = format!("{}/relation-tuples", self.write_url);
         let body = serde_json::json!({
             "namespace": namespace,
             "object": object,
@@ -233,7 +285,7 @@ impl KetoClient {
         Ok(())
     }
 
-    /// Delete relation tuples matching the filters via `DELETE /admin/relation-tuples`.
+    /// Delete relation tuples matching the filters via `DELETE /relation-tuples` on the Write API.
     pub async fn delete_relation_tuple(
         &self,
         namespace: &str,
@@ -245,7 +297,7 @@ impl KetoClient {
             "namespace={}&object={}&relation={}&subject_id={}",
             namespace, object, relation, subject_id
         );
-        let url = format!("{}/admin/relation-tuples?{}", self.write_url, q);
+        let url = format!("{}/relation-tuples?{}", self.write_url, q);
 
         let req = Request::new_with_init(
             &url,

@@ -1,6 +1,6 @@
 use crate::db::{KetoClient, ListParams, SupabaseClient};
 use crate::models::Todo;
-use crate::utils::context::AppContext;
+use crate::utils::{context::AppContext, logging};
 use worker::*;
 
 const KETO_NAMESPACE: &str = "todos";
@@ -158,14 +158,18 @@ impl TodoRepo {
         let db = SupabaseClient::from_env(ctx)?;
         db.delete("todos", id).await?;
 
-        let _ = keto
+        // Remove ownership tuple in Keto after successful Supabase delete. Log on failure; do not fail the request.
+        if let Err(e) = keto
             .delete_relation_tuple(
                 KETO_NAMESPACE,
                 &id.to_string(),
                 KETO_RELATION_OWNER,
                 &subject_id(user_id),
             )
-            .await;
+            .await
+        {
+            logging::log_error(&format!("keto delete relation tuple: {}", e));
+        }
 
         Ok(())
     }
