@@ -68,6 +68,20 @@ async fn fetch(
                 async move { handlers::todo_handler::delete_todo(req, ctx, app_ctx).await }
             }
         })
+        .get_async("/api/admin/todos", {
+            let app_ctx = app_ctx.clone();
+            move |req, _| {
+                let app_ctx = app_ctx.clone();
+                async move { handlers::todo_handler::admin_list_todos(req, app_ctx).await }
+            }
+        })
+        .delete_async("/api/admin/todos/:id", {
+            let app_ctx = app_ctx.clone();
+            move |req, ctx| {
+                let app_ctx = app_ctx.clone();
+                async move { handlers::todo_handler::admin_delete_todo(req, ctx, app_ctx).await }
+            }
+        })
         .run(req, env_for_router)
         .await
 }

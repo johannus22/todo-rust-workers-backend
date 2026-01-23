@@ -9,6 +9,11 @@ command = "cargo install -q worker-build@^0.7 && worker-build --release"
 APP_NAME = "todo-backend"
 DB_API_URL = "https://lthtaikdtvvcaeperfas.supabase.co"
 
+# Ory Kratos Admin/Public API (local dev defaults).
+# For prod, set via: wrangler secret put KRATOS_ADMIN_URL (or KRATOS_PUBLIC_URL)
+KRATOS_ADMIN_URL="http://localhost:4434"
+KRATOS_PUBLIC_URL="http://localhost:4433"
+
 # Ory Keto Read API (e.g. Docker: http://keto:4467 or host: http://localhost:4467).
 # For prod, set via: wrangler secret put KETO_READ_URL
 KETO_READ_URL="http://0.0.0.0:4466"

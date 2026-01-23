@@ -1,6 +1,7 @@
 use crate::db::{KetoClient, ListParams, SupabaseClient};
-use crate::models::Todo;
+use crate::models::{AdminTodo, Todo};
 use crate::utils::{context::AppContext, logging};
+use std::collections::HashMap;
 use worker::*;
 
 const KETO_NAMESPACE: &str = "todos";
@@ -66,6 +67,65 @@ impl TodoRepo {
                 json_value
             ))),
         }
+    }
+
+    /// List all todos with owner info (admin-only).
+    pub async fn list_all_with_owner(ctx: &AppContext) -> Result<Vec<AdminTodo>> {
+        let db = SupabaseClient::from_env(ctx)?;
+        let query = "select=id,title,completed,created_at&order=created_at.desc";
+        let json_value = db.get("todos", query).await?;
+        let todos: Vec<Todo> = match json_value {
+            serde_json::Value::Array(arr) => {
+                serde_json::from_value(serde_json::Value::Array(arr))?
+            }
+            _ => {
+                return Err(Error::RustError(format!(
+                    "Expected array, got: {}",
+                    json_value
+                )))
+            }
+        };
+
+        let keto = KetoClient::from_env(ctx)?;
+        let tuples = keto
+            .list_relation_tuples(ListParams {
+                namespace: KETO_NAMESPACE.to_string(),
+                object: None,
+                relation: Some(KETO_RELATION_OWNER.to_string()),
+                subject_id: None,
+                subject_set: None,
+                page_size: Some(1000),
+                page_token: None,
+            })
+            .await?;
+
+        let mut owners: HashMap<i64, String> = HashMap::new();
+        if let Some(arr) = tuples.get("relation_tuples").and_then(|v| v.as_array()) {
+            for t in arr {
+                let object = t.get("object").and_then(|o| o.as_str());
+                let subject_id = t.get("subject_id").and_then(|s| s.as_str());
+                if let (Some(obj), Some(sub)) = (object, subject_id) {
+                    if let Ok(id) = obj.parse::<i64>() {
+                        let owner_id = sub.strip_prefix("user:").unwrap_or(sub).to_string();
+                        owners.insert(id, owner_id);
+                    }
+                }
+            }
+        }
+
+        let admin_todos = todos
+            .into_iter()
+            .map(|t| AdminTodo {
+                id: t.id,
+                title: t.title,
+                completed: t.completed,
+                created_at: t.created_at,
+                owner_id: owners.get(&t.id).cloned(),
+                owner_email: None,
+            })
+            .collect::<Vec<_>>();
+
+        Ok(admin_todos)
     }
 
     /// Create a todo and set the caller as owner in Keto.
@@ -169,6 +229,54 @@ impl TodoRepo {
             .await
         {
             logging::log_error(&format!("keto delete relation tuple: {}", e));
+        }
+
+        Ok(())
+    }
+
+    /// Delete any todo (admin-only). Attempts to remove owner tuples in Keto if available.
+    pub async fn delete_any(ctx: &AppContext, id: i64) -> Result<()> {
+        let db = SupabaseClient::from_env(ctx)?;
+        db.delete("todos", id).await?;
+
+        if let Ok(keto) = KetoClient::from_env(ctx) {
+            let tuples = keto
+                .list_relation_tuples(ListParams {
+                    namespace: KETO_NAMESPACE.to_string(),
+                    object: Some(id.to_string()),
+                    relation: Some(KETO_RELATION_OWNER.to_string()),
+                    subject_id: None,
+                    subject_set: None,
+                    page_size: Some(100),
+                    page_token: None,
+                })
+                .await;
+
+            match tuples {
+                Ok(json) => {
+                    if let Some(arr) = json.get("relation_tuples").and_then(|v| v.as_array()) {
+                        for t in arr {
+                            if let Some(sub) = t.get("subject_id").and_then(|s| s.as_str()) {
+                                if let Err(e) = keto
+                                    .delete_relation_tuple(
+                                        KETO_NAMESPACE,
+                                        &id.to_string(),
+                                        KETO_RELATION_OWNER,
+                                        sub,
+                                    )
+                                    .await
+                                {
+                                    logging::log_error(&format!(
+                                        "keto delete relation tuple (admin): {}",
+                                        e
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                }
+                Err(e) => logging::log_error(&format!("keto list relation tuples: {}", e)),
+            }
         }
 
         Ok(())
