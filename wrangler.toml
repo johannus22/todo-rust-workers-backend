@@ -23,5 +23,4 @@ KETO_WRITE_URL="http://0.0.0.0:4467"
 
 [[kv_namespaces]]
 binding = "USERS_KV"
-id = "users_kv_preview"
-preview_id = "users_kv_preview"
+preview_id = "57e362f9418e49fc849dc8d874c749cd"
