@@ -1,4 +1,4 @@
-use crate::utils::cors;
+use crate::middleware::cors;
 use worker::*;
 
 pub fn json_error(msg: &str, status: u16) -> Result<Response> {

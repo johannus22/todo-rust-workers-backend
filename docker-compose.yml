@@ -40,7 +40,6 @@ services:
     environment:
       DSN: ${KRATOS_DSN}
     ports:
-      - "4433:4433" # Public API (for browser flows)
       - "4434:4434" # Admin API (local dev)
     volumes:
       - ./kratos:/etc/config/kratos
@@ -63,7 +62,22 @@ services:
       timeout: 5s
       retries: 5
 
-  # PostgreSQL database for Ory Keto
+  # Nginx reverse proxy for rate limiting Kratos public endpoints
+  kratos-proxy:
+    image: nginx:1.27-alpine
+    depends_on:
+      - kratos
+    ports:
+      - "4433:80" # Public API via proxy
+    volumes:
+      - type: bind
+        source: ./kratos/nginx.conf
+        target: /etc/nginx/nginx.conf
+        read_only: true
+        bind:
+          create_host_path: false
+    restart: unless-stopped
+
   # PostgreSQL database for Ory Keto
   keto-db:
     image: postgres:15-alpine
@@ -121,6 +135,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # Mailpit SMTP server for local email testing
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI
 
 volumes:
   kratos-db-data:

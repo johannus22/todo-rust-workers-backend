@@ -2,9 +2,10 @@ mod models;
 mod db;
 mod repositories;
 mod handlers;
+mod middleware;
 mod utils;
 
-use utils::cors;
+use crate::middleware::cors;
 use worker::*;
 use utils::context::AppContext;
 
@@ -14,7 +15,7 @@ async fn fetch(
     env: Env,
     _ctx: Context,
 ) -> Result<Response> {
-    utils::logging::log_request(&req);
+    crate::middleware::logging::log_request(&req);
 
     // Handle CORS preflight (OPTIONS) requests
     if req.method() == Method::Options {

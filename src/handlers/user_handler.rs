@@ -1,6 +1,7 @@
 use crate::models::CreateUser;
 use crate::repositories::UserRepo;
-use crate::utils::{cors, errors};
+use crate::middleware::cors;
+use crate::utils::errors;
 use crate::utils::context::AppContext;
 use worker::*;
 

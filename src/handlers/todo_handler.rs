@@ -1,7 +1,8 @@
 use crate::db::KratosClient;
 use crate::models::{CreateTodo, UpdateTodo};
 use crate::repositories::TodoRepo;
-use crate::utils::{auth, context::AppContext, cors, errors, logging};
+use crate::middleware::{auth, cors, logging};
+use crate::utils::{context::AppContext, errors};
 use std::collections::HashMap;
 use worker::*;
 

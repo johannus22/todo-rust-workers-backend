@@ -1,6 +1,7 @@
 use crate::db::{KetoClient, ListParams, SupabaseClient};
 use crate::models::{AdminTodo, Todo};
-use crate::utils::{context::AppContext, logging};
+use crate::middleware::logging;
+use crate::utils::context::AppContext;
 use std::collections::HashMap;
 use worker::*;
 

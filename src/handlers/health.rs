@@ -1,4 +1,4 @@
-use crate::utils::cors;
+use crate::middleware::cors;
 use worker::*;
 
 pub fn health_check(_req: Request, ctx: RouteContext<()>) -> Result<Response> {

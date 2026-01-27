@@ -1,6 +1,6 @@
 use crate::db::{CheckParams, KetoClient, KratosClient};
 use crate::utils::context::AppContext;
-use crate::utils::logging;
+use crate::middleware::logging;
 use worker::*;
 
 const ADMIN_NAMESPACE: &str = "roles";
@@ -8,7 +8,7 @@ const ADMIN_OBJECT: &str = "admin";
 const ADMIN_RELATION: &str = "member";
 
 /// Reads `X-User-Id` from the request. Returns `None` if missing or empty.
-/// In handlers: `let user_id = match utils::auth::get_user_id(&req) { Some(u) => u, None => return errors::json_error("Missing X-User-Id", 401) };`
+/// In handlers: `let user_id = match middleware::auth::get_user_id(&req) { Some(u) => u, None => return errors::json_error("Missing X-User-Id", 401) };`
 pub fn get_user_id(req: &Request) -> Option<String> {
     let s = req.headers().get("X-User-Id").ok().flatten()?;
     let s = s.trim();
