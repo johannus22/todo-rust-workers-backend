@@ -1,0 +1,44 @@
+# Allow CORS preflight without auth
+- id: allow-preflight
+  upstream:
+    url: http://host.docker.internal:8787
+  match:
+    url: http://localhost:4455/<.*>
+    methods: [OPTIONS]
+  authenticators:
+    - handler: anonymous
+  authorizer:
+    handler: allow
+  mutators:
+    - handler: header
+
+# Public health endpoint
+- id: public-health
+  upstream:
+    url: http://host.docker.internal:8787
+  match:
+    url: http://localhost:4455/health
+    methods: [GET]
+  authenticators:
+    - handler: anonymous
+  authorizer:
+    handler: allow
+  mutators:
+    - handler: header
+
+# Everything else requires a Kratos session
+- id: protected-api
+  upstream:
+    url: http://host.docker.internal:8787
+  match:
+    url: http://localhost:4455/api/<.*>
+    methods: [GET, POST, PATCH, DELETE]
+  authenticators:
+    - handler: cookie_session
+  authorizer:
+    handler: allow
+  mutators:
+    - handler: header
+      config:
+        headers:
+          X-User-Id: "{{ print .Subject }}"

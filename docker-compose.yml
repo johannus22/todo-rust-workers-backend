@@ -136,6 +136,24 @@ services:
       timeout: 5s
       retries: 5
 
+
+  # Ory Oathkeeper (proxy 4455, API 4456)
+  oathkeeper:
+    image: oryd/oathkeeper:v0.40.6
+    depends_on:
+      - kratos-proxy
+      - keto
+    ports:
+      - "4455:4455"
+      - "4456:4456"
+    volumes:
+      - ./oathkeeper:/etc/config/oathkeeper
+    command: serve --config /etc/config/oathkeeper/oathkeeper.yml
+    restart: unless-stopped
+    # For Linux hosts; harmless on Docker Desktop
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
   # Mailpit SMTP server for local email testing
   mailpit:
     image: axllent/mailpit:latest
