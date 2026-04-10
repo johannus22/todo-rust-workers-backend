@@ -1,0 +1,131 @@
+version: v1.3.2
+
+dsn: postgres://kratos:secret@kratos-db:5432/kratos?sslmode=disable&max_conns=20&max_idle_conns=4
+
+serve:
+  public:
+    port: 4433
+    host: 0.0.0.0
+    base_url: http://localhost:4433
+    cors:
+      enabled: true
+      allowed_origins:
+        - http://localhost:5173 # Vite dev server
+        - http://localhost:3000 # Alternative React dev server
+      allowed_methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      allowed_headers:
+        - Authorization
+        - Content-Type
+        - Cookie
+        - Accept
+      exposed_headers:
+        - Set-Cookie
+        - Content-Type
+      allow_credentials: true
+  admin:
+    port: 4434
+    host: 0.0.0.0
+    base_url: http://localhost:4434
+
+selfservice:
+  default_browser_return_url: http://localhost:5173/todos
+  allowed_return_urls:
+    - http://localhost:5173
+    - http://localhost:3000
+    - http://localhost:5173/todos
+    - http://localhost:5173/dashboard
+    - http://localhost:5173/login
+    - http://localhost:5173/register
+    - http://localhost:5173/settings
+
+  methods:
+    password:
+      enabled: true
+      config:
+        max_breaches: 0
+        ignore_network_errors: false
+
+    totp:
+      enabled: true
+      config:
+        issuer: "Todo App"
+
+    webauthn:
+      enabled: false
+
+  flows:
+    error:
+      ui_url: http://localhost:5173/error
+
+    settings:
+      ui_url: http://localhost:5173/settings
+      privileged_session_max_age: 15m
+      required_aal: highest_available
+
+    recovery:
+      enabled: true
+      ui_url: http://localhost:5173/recovery
+      use: code
+      after:
+        default_browser_return_url: http://localhost:5173/settings
+
+    verification:
+      enabled: true
+      ui_url: http://localhost:5173/verification
+      use: code
+      after:
+        default_browser_return_url: http://localhost:5173/settings
+
+    logout:
+      after:
+        default_browser_return_url: http://localhost:5173/login
+
+    login:
+      ui_url: http://localhost:5173/login
+      lifespan: 10m
+      after:
+        password:
+          default_browser_return_url: http://localhost:5173/todos
+        totp:
+          default_browser_return_url: http://localhost:5173/todos
+        webauthn:
+          default_browser_return_url: http://localhost:5173/todos
+
+    registration:
+      ui_url: http://localhost:5173/register
+      lifespan: 10m
+      # Enable single-step registration (email + password on same form)
+      # Without this, Kratos uses two-step flow which causes choose_method state issues
+      enable_legacy_one_step: true
+      after:
+        password:
+          default_browser_return_url: http://localhost:5173/todos
+
+hashers:
+  algorithm: bcrypt
+  bcrypt:
+    cost: 8
+
+identity:
+  default_schema_id: default
+  schemas:
+    - id: default
+      url: file:///etc/config/kratos/identity.schema.json
+
+courier:
+  smtp:
+    connection_uri: smtp://mailpit:1025/?disable_starttls=true
+    from_address: noreply@local.test
+    from_name: Todo App
+
+secrets:
+  cookie:
+    - PLEASE-CHANGE-ME-I-AM-VERY-INSECURE
+  cipher:
+    - 32-LONG-SECRET-NOT-SECURE-AT-ALL

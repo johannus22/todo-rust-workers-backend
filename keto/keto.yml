@@ -1,0 +1,17 @@
+serve:
+  read:
+    host: 0.0.0.0
+    port: 4466
+  write:
+    host: 0.0.0.0
+    port: 4467
+
+dsn: postgres://keto:secret@keto-db:5432/keto?sslmode=disable&max_conns=20&max_idle_conns=4
+
+log:
+  level: debug
+  format: json
+
+namespaces:
+  - id: 0
+    name: todos

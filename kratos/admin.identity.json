@@ -1,0 +1,16 @@
+{
+  "schema_id": "default",
+  "traits": {
+    "email": "admin@todo.app"
+  },
+  "metadata_public": {
+    "role": "admin"
+  },
+  "credentials": {
+    "password": {
+      "config": {
+        "password": "admin123!"
+      }
+    }
+  }
+}
